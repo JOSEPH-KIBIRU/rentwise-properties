@@ -5,7 +5,6 @@ const morgan = require('morgan');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
-const aiRoutes = require('./routes/ai');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -13,6 +12,7 @@ const propertyRoutes = require('./routes/properties');
 const articleRoutes = require('./routes/articles');
 const inquiryRoutes = require('./routes/inquiries');
 const userRoutes = require('./routes/user');
+const aiRoutes = require('./routes/ai');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -24,7 +24,7 @@ const limiter = rateLimit({
   message: 'Too many requests from this IP, please try again later.'
 });
 
-// CORS Configuration - FIXED
+// CORS Configuration
 const allowedOrigins = [
   'https://rentwiseproperties.netlify.app',
   'https://rentwiseproperties.netlify.app/',
@@ -33,7 +33,6 @@ const allowedOrigins = [
   process.env.FRONTEND_URL
 ].filter(Boolean);
 
-// Function to normalize origin (remove trailing slash)
 const normalizeOrigin = (origin) => {
   if (!origin) return origin;
   return origin.replace(/\/$/, '');
@@ -47,18 +46,14 @@ app.use((req, res, next) => {
   next();
 });
 
-// CORS middleware with proper configuration
+// CORS middleware
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
-    // Check if normalized origin is allowed
     const normalizedOrigin = normalizeOrigin(origin);
     const isAllowed = allowedOrigins.some(allowed => 
       normalizeOrigin(allowed) === normalizedOrigin
     );
-    
     if (isAllowed) {
       callback(null, true);
     } else {
@@ -68,11 +63,10 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  exposedHeaders: ['Content-Range', 'X-Content-Range']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
-// Security headers with helmet but allow CORS
+// Security headers
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
   crossOriginOpenerPolicy: { policy: "unsafe-none" }
@@ -83,29 +77,61 @@ app.use(morgan('combined'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-app.use('/api/', limiter);
-app.use('/api/ai', aiRoutes);
+// Apply rate limiting to API routes
+app.use('/api', limiter);
 
-// Health check
+// Health check (before any routes that might intercept)
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     message: 'RentWise Properties API is running',
     timestamp: new Date().toISOString(),
-    cors_origins: allowedOrigins.map(normalizeOrigin)
+    routes: {
+      auth: '/api/auth',
+      properties: '/api/properties',
+      articles: '/api/articles',
+      inquiries: '/api/inquiries',
+      users: '/api/users',
+      ai: '/api/ai'
+    }
   });
 });
 
-// API Routes
+// API Routes - ORDER MATTERS! Specific routes before generic ones
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
 app.use('/api/properties', propertyRoutes);
 app.use('/api/articles', articleRoutes);
 app.use('/api/inquiries', inquiryRoutes);
-app.use('/api/users', userRoutes);
+app.use('/api/ai', aiRoutes);
+
+// Debug route to see all registered routes (optional, remove in production)
+app.get('/api/routes', (req, res) => {
+  const routes = [];
+  app._router.stack.forEach(middleware => {
+    if (middleware.route) {
+      routes.push({
+        path: middleware.route.path,
+        methods: Object.keys(middleware.route.methods)
+      });
+    } else if (middleware.name === 'router') {
+      middleware.handle.stack.forEach(handler => {
+        if (handler.route) {
+          routes.push({
+            path: handler.route.path,
+            methods: Object.keys(handler.route.methods)
+          });
+        }
+      });
+    }
+  });
+  res.json(routes);
+});
 
 // 404 handler
 app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found' });
+  console.log('404 Not Found:', req.method, req.url);
+  res.status(404).json({ error: 'Route not found', path: req.url });
 });
 
 // Error handling
