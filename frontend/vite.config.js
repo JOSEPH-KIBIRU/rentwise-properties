@@ -11,14 +11,6 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: false,
     minify: 'terser',
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom'],
-          ui: ['react-hot-toast', 'react-icons']
-        }
-      }
-    }
   },
   server: {
     port: 5173,
