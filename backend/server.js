@@ -57,7 +57,6 @@ app.use(cors({
     if (isAllowed) {
       callback(null, true);
     } else {
-      console.log('CORS blocked origin:', origin);
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -130,7 +129,6 @@ app.get('/api/routes', (req, res) => {
 
 // 404 handler
 app.use((req, res) => {
-  console.log('404 Not Found:', req.method, req.url);
   res.status(404).json({ error: 'Route not found', path: req.url });
 });
 
@@ -149,8 +147,4 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔗 API URL: http://localhost:${PORT}`);
-  console.log(`✅ CORS allowed origins: ${allowedOrigins.map(normalizeOrigin).join(', ')}`);
 });
