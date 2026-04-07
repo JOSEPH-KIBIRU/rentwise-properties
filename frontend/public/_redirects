@@ -1,4 +1,6 @@
-/sitemap.xml    /sitemap.xml    200
-/robots.txt     /robots.txt     200
+# First, explicitly serve static files
+/sitemap.xml   /sitemap.xml   200
+/robots.txt    /robots.txt    200
 
-/*              /index.html     200
+# Then the catch-all for React Router
+/*             /index.html     200

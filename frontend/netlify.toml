@@ -5,4 +5,4 @@
 [build.environment]
   NODE_VERSION = "18"
 
-# No redirects here - they're in the _redirects file
+# NO redirects here - let _redirects file handle it
