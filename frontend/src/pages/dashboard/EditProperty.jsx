@@ -48,33 +48,29 @@ const EditProperty = () => {
     }
   }, [id]);
 
-  // ✅ Safe price formatter for display
+  // Safe price formatter for display
   const formatPriceForDisplay = (price) => {
     if (price === null || price === undefined) return '';
     const num = typeof price === 'string' ? parseFloat(price.replace(/,/g, '')) : price;
     return isNaN(num) ? '' : new Intl.NumberFormat('en-KE').format(num);
   };
 
-  // ✅ Fetch single property using Supabase (fixes 404 + UUID issue)
+  // ✅ FIXED: Use backend API instead of direct Supabase
   const fetchProperty = async () => {
     try {
       setFetching(true);
       
-      const {  property, error } = await supabase
-        .from('properties')
-        .select('*')
-        .eq('id', id) // ✅ id is already a UUID string from useParams()
-        .maybeSingle(); // ✅ Returns null instead of throwing if not found
+      // Call your backend API
+      const response = await api.get(`/properties/id/${id}`);
+      const property = response.data.property;
 
-      if (error) throw error;
-      
       if (!property) {
-        toast.error('Property not found or access denied');
+        toast.error('Property not found');
         navigate('/dashboard/properties');
         return;
       }
 
-      // ✅ Format arrays safely
+      // Format arrays safely
       const fmtArr = (arr) => Array.isArray(arr) ? arr.join(', ') : '';
 
       setFormData({
@@ -98,7 +94,7 @@ const EditProperty = () => {
       
     } catch (err) {
       console.error('Fetch error:', err);
-      toast.error('Failed to load property');
+      toast.error(err.response?.data?.error || 'Failed to load property');
       navigate('/dashboard/properties');
     } finally {
       setFetching(false);
@@ -161,7 +157,7 @@ const EditProperty = () => {
     setImagePreviews(prev => prev.filter((_, i) => i !== index));
   };
 
-  // ✅ Update property using Supabase (fixes 404 + UUID issue)
+  // ✅ FIXED: Use backend API instead of direct Supabase
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -195,53 +191,26 @@ const EditProperty = () => {
         area: formData.area ? parseFloat(formData.area) : null,
         area_unit: formData.area_unit,
         features: formData.features ? formData.features.split(',').map(f => f.trim()).filter(Boolean) : [],
-        amenities: formData.amenities ? formData.amenities.split(',').map(a => a.trim()).filter(Boolean) : [],
-        updated_at: new Date().toISOString()
+        amenities: formData.amenities ? formData.amenities.split(',').map(a => a.trim()).filter(Boolean) : []
       };
 
-      const { error } = await supabase
-        .from('properties')
-        .update(updateData)
-        .eq('id', id); // ✅ UUID string match
+      // Call your backend API
+      const response = await api.put(`/properties/${id}`, updateData);
 
-      if (error) throw error;
-
-      toast.success('Property updated successfully! 🎉');
-      setTimeout(() => navigate('/dashboard/properties'), 1500);
+      if (response.data.success) {
+        toast.success('Property updated successfully! 🎉');
+        setTimeout(() => navigate('/dashboard/properties'), 1500);
+      } else {
+        toast.error('Update failed');
+      }
       
     } catch (err) {
       console.error('Update error:', err);
-      toast.error(err.message || 'Failed to update property');
+      toast.error(err.response?.data?.error || 'Failed to update property');
     } finally {
       setLoading(false);
     }
   };
-
-  // ✅ Optional: Handle image upload to Supabase Storage (uncomment when ready)
-  /*
-  const handleImageUpload = async () => {
-    if (selectedImages.length === 0) return existingImages;
-    
-    const uploadedUrls = [];
-    for (const file of selectedImages) {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
-      
-      const { error, data } = await supabase.storage
-        .from('property-images') // ✅ Your bucket name
-        .upload(fileName, file);
-        
-      if (error) throw error;
-      
-      const {  { publicUrl } } = supabase.storage
-        .from('property-images')
-        .getPublicUrl(fileName);
-        
-      uploadedUrls.push(publicUrl);
-    }
-    return [...existingImages, ...uploadedUrls];
-  };
-  */
 
   if (fetching) {
     return (
