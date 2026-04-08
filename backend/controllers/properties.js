@@ -1,9 +1,19 @@
 const { supabase } = require('../config/supabase');
 const { generateSlug } = require('../utils/formatters');
 const { uploadImages, deleteImage } = require('../services/uploadService');
+const NodeCache = require('node-cache');
+
+// Initialize cache with 5 minute TTL (Time To Live)
+const propertyCache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
+
+// Helper function to clear cache when properties change
+const clearPropertyCache = () => {
+  propertyCache.flushAll();
+  console.log('🗑️ Property cache cleared');
+};
 
 /**
- * Get all properties with filters
+ * Get all properties with filters (CACHED)
  */
 const getProperties = async (req, res) => {
   try {
@@ -19,6 +29,26 @@ const getProperties = async (req, res) => {
       limit = 20,
       page = 1
     } = req.query;
+
+    // Create a unique cache key from all query parameters
+    const cacheKey = JSON.stringify({
+      category, type, location, min_price, max_price, 
+      bedrooms, featured, my, limit, page
+    });
+    
+    // Check if user is logged in for 'my' filter - don't cache personal requests
+    const isPersonalRequest = my === 'true' && req.user;
+    
+    // Only use cache for public requests (not personal 'my' requests)
+    if (!isPersonalRequest) {
+      const cachedData = propertyCache.get(cacheKey);
+      if (cachedData) {
+        console.log(`✅ Serving from cache: ${cacheKey.substring(0, 50)}...`);
+        return res.json(cachedData);
+      }
+    }
+
+    console.log(`🔄 Fetching from database: ${cacheKey.substring(0, 50)}...`);
 
     let query = supabase
       .from('properties')
@@ -48,7 +78,7 @@ const getProperties = async (req, res) => {
       return res.status(400).json({ error: error.message });
     }
 
-    res.json({
+    const response = {
       success: true,
       properties: data,
       pagination: {
@@ -57,7 +87,15 @@ const getProperties = async (req, res) => {
         limit: parseInt(limit),
         pages: Math.ceil(count / limit)
       }
-    });
+    };
+    
+    // Store in cache only for public requests
+    if (!isPersonalRequest) {
+      propertyCache.set(cacheKey, response);
+      console.log(`💾 Cached response for: ${cacheKey.substring(0, 50)}...`);
+    }
+
+    res.json(response);
   } catch (error) {
     console.error('Get properties error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -65,17 +103,26 @@ const getProperties = async (req, res) => {
 };
 
 /**
- * Get single property by ID
+ * Get single property by ID (CACHED)
  */
 const getPropertyById = async (req, res) => {
   try {
     const { id } = req.params;
     
+    // Cache individual property by ID
+    const cacheKey = `property_id_${id}`;
+    const cachedData = propertyCache.get(cacheKey);
+    
+    if (cachedData) {
+      console.log(`✅ Serving property ${id} from cache`);
+      return res.json(cachedData);
+    }
+    
     const { data: property, error } = await supabase
       .from('properties')
       .select('*')
       .eq('id', id)
-      .single();  // Use .single() to get a single object
+      .single();
 
     if (error) {
       console.error('Supabase error:', error);
@@ -86,10 +133,16 @@ const getPropertyById = async (req, res) => {
       return res.status(404).json({ error: 'Property not found' });
     }
 
-    res.json({
+    const response = {
       success: true,
       property: property
-    });
+    };
+    
+    // Cache the property
+    propertyCache.set(cacheKey, response);
+    console.log(`💾 Cached property ${id}`);
+
+    res.json(response);
   } catch (error) {
     console.error('Get property by ID error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -97,11 +150,29 @@ const getPropertyById = async (req, res) => {
 };
 
 /**
- * Get single property by slug
+ * Get single property by slug (CACHED)
  */
 const getPropertyBySlug = async (req, res) => {
   try {
     const { slug } = req.params;
+    
+    // Cache by slug
+    const cacheKey = `property_slug_${slug}`;
+    const cachedData = propertyCache.get(cacheKey);
+    
+    if (cachedData) {
+      console.log(`✅ Serving property slug ${slug} from cache`);
+      // Still increment view count asynchronously (don't wait for it)
+      if (cachedData.property?.id) {
+        supabase
+          .from('properties')
+          .update({ views: (cachedData.property.views || 0) + 1 })
+          .eq('id', cachedData.property.id)
+          .then(() => console.log(`📊 View count updated for ${slug}`))
+          .catch(err => console.error('View update error:', err));
+      }
+      return res.json(cachedData);
+    }
 
     const { data: property, error } = await supabase
       .from('properties')
@@ -119,15 +190,22 @@ const getPropertyBySlug = async (req, res) => {
 
     const propertyData = property[0];
 
+    // Update view count
     await supabase
       .from('properties')
       .update({ views: (propertyData.views || 0) + 1 })
       .eq('id', propertyData.id);
 
-    res.json({
+    const response = {
       success: true,
       property: propertyData
-    });
+    };
+    
+    // Cache the property
+    propertyCache.set(cacheKey, response);
+    console.log(`💾 Cached property slug ${slug}`);
+
+    res.json(response);
   } catch (error) {
     console.error('Get property by slug error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -135,7 +213,7 @@ const getPropertyBySlug = async (req, res) => {
 };
 
 /**
- * Create new property
+ * Create new property (clears cache)
  */
 const createProperty = async (req, res) => {
   try {
@@ -226,6 +304,9 @@ const createProperty = async (req, res) => {
       return res.status(400).json({ error: error.message });
     }
 
+    // Clear cache since new property was added
+    clearPropertyCache();
+
     res.status(201).json({
       success: true,
       message: 'Property created successfully',
@@ -239,13 +320,12 @@ const createProperty = async (req, res) => {
 };
 
 /**
- * Update property
+ * Update property (clears cache)
  */
 const updateProperty = async (req, res) => {
   try {
     const { id } = req.params;
     const updates = { ...req.body };
-
 
     // First, check if property exists
     const { data: existing, error: fetchError } = await supabase
@@ -314,7 +394,6 @@ const updateProperty = async (req, res) => {
     delete updates.agent_id;
     delete updates.slug;
 
-
     // Perform the update
     const { data, error } = await supabase
       .from('properties')
@@ -326,6 +405,9 @@ const updateProperty = async (req, res) => {
       console.error('Update error:', error);
       return res.status(400).json({ error: error.message });
     }
+
+    // Clear cache since property was updated
+    clearPropertyCache();
 
     if (!data || data.length === 0) {
       // Try to fetch the updated property
@@ -357,7 +439,7 @@ const updateProperty = async (req, res) => {
 };
 
 /**
- * Delete property
+ * Delete property (clears cache)
  */
 const deleteProperty = async (req, res) => {
   try {
@@ -397,6 +479,9 @@ const deleteProperty = async (req, res) => {
     if (error) {
       return res.status(400).json({ error: error.message });
     }
+
+    // Clear cache since property was deleted
+    clearPropertyCache();
 
     res.json({
       success: true,

@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import api from '../services/api';
+import api, { fetchWithRetry } from '../services/api';
 import PropertyCard from '../components/PropertyCard';
+import PropertyCardSkeleton from '../components/PropertyCardSkeleton';
 
 const Properties = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMessage, setLoadingMessage] = useState('Loading properties...');
   const [pagination, setPagination] = useState({
     total: 0,
     page: 1,
@@ -26,28 +28,33 @@ const Properties = () => {
     fetchProperties();
   }, [filters, pagination.page]);
 
-  const fetchProperties = async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (filters.category) params.append('category', filters.category);
-      if (filters.location) params.append('location', filters.location);
-      if (filters.min_price) params.append('min_price', filters.min_price);
-      if (filters.max_price) params.append('max_price', filters.max_price);
-      if (filters.bedrooms) params.append('bedrooms', filters.bedrooms);
-      if (filters.featured) params.append('featured', 'true');
-      params.append('page', pagination.page);
-      params.append('limit', pagination.limit);
-      
-      const { data } = await api.get(`/properties?${params.toString()}`);
-      setProperties(data.properties);
-      setPagination(data.pagination);
-    } catch (error) {
-      console.error('Error fetching properties:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+ const fetchProperties = async () => {
+  try {
+    setLoading(true);
+    setLoadingMessage('Loading properties...');
+    
+    const params = new URLSearchParams();
+    if (filters.category) params.append('category', filters.category);
+    if (filters.location) params.append('location', filters.location);
+    if (filters.min_price) params.append('min_price', filters.min_price);
+    if (filters.max_price) params.append('max_price', filters.max_price);
+    if (filters.bedrooms) params.append('bedrooms', filters.bedrooms);
+    if (filters.featured) params.append('featured', 'true');
+    params.append('page', pagination.page);
+    params.append('limit', pagination.limit);
+    
+    // Use fetchWithRetry for better cold start handling
+    const response = await fetchWithRetry(`/properties?${params.toString()}`, {}, 2);
+    
+    setProperties(response.data.properties || []);
+    setPagination(response.data.pagination);
+  } catch (error) {
+    console.error('Error fetching properties:', error);
+    setLoadingMessage(error.message || 'Unable to load properties. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleFilterChange = (key, value) => {
     setFilters({ ...filters, [key]: value });
@@ -88,6 +95,10 @@ const Properties = () => {
     { value: '3', label: '3+ Beds' },
     { value: '4', label: '4+ Beds' }
   ];
+
+  // Create array of skeletons for loading state
+  const skeletonCount = pagination.limit;
+  const skeletons = Array(skeletonCount).fill(null);
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -193,18 +204,30 @@ const Properties = () => {
         </div>
 
         {/* Results Count */}
-        <div className="mb-6">
-          <p className="text-gray-600">
-            Found <span className="font-semibold text-gray-900">{pagination.total}</span> properties
-          </p>
-        </div>
+        {!loading && (
+          <div className="mb-6">
+            <p className="text-gray-600">
+              Found <span className="font-semibold text-gray-900">{pagination.total}</span> properties
+            </p>
+          </div>
+        )}
 
         {/* Properties Grid */}
         {loading ? (
-          <div className="text-center py-12">
-            <div className="inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            <p className="mt-2 text-gray-500">Loading properties...</p>
-          </div>
+          <>
+            <div className="mb-4 text-center">
+              <div className="inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-2"></div>
+              <p className="text-gray-500">{loadingMessage}</p>
+              {loadingMessage.includes('waking up') && (
+                <p className="text-sm text-gray-400 mt-1">First load may take 10-15 seconds</p>
+              )}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {skeletons.map((_, index) => (
+                <PropertyCardSkeleton key={`skeleton-${index}`} />
+              ))}
+            </div>
+          </>
         ) : properties.length === 0 ? (
           <div className="bg-white rounded-lg shadow-md p-12 text-center">
             <div className="text-6xl mb-4">🔍</div>

@@ -1,6 +1,8 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { AuthProvider } from './context/AuthContext'; import Navbar from './components/layout/Navbar';
+import { AuthProvider } from './context/AuthContext';
+import { useEffect } from 'react';
+import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
 import Home from './pages/Home';
 import Login from './pages/Login';
@@ -21,7 +23,25 @@ import Articles from './pages/dashboard/Articles';
 import ArticleForm from './pages/dashboard/ArticleForm';
 import EditProperty from './pages/dashboard/EditProperty';
 
+// Import keep-alive service
+import { keepAlive } from './services/keepalive';
+
 function App() {
+  useEffect(() => {
+    // Start keep-alive service only in production (on the live website)
+    // This helps keep the backend warm during business hours
+    if (import.meta.env.PROD) {
+      console.log('🚀 Starting keep-alive service for production');
+      keepAlive.start();
+      
+      // Optional: Stop keep-alive when user leaves the page (cleanup)
+      return () => {
+        console.log('🛑 Stopping keep-alive service');
+        keepAlive.stop();
+      };
+    }
+  }, []);
+
   return (
     <AuthProvider>
       <Router>

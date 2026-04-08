@@ -1,28 +1,44 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import api from '../services/api';
+import api, { fetchWithRetry } from '../services/api';
 import PropertyCard from '../components/PropertyCard';
 import HeroCarousel from '../components/HeroCarousel';
+import PropertyCardSkeleton from '../components/PropertyCardSkeleton';
 
 const Home = () => {
   const [featuredProperties, setFeaturedProperties] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMessage, setLoadingMessage] = useState('Loading featured properties...');
   const [searchQuery, setSearchQuery] = useState('');
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     fetchFeaturedProperties();
   }, []);
 
   const fetchFeaturedProperties = async () => {
-    try {
-      const { data } = await api.get('/properties?featured=true&limit=6');
-      setFeaturedProperties(data.properties);
-    } catch (error) {
-      console.error('Error fetching featured properties:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  setLoading(true);
+  setLoadingMessage('Loading featured properties...');
+  
+  try {
+    // Use the retry helper for better cold start handling
+    const response = await fetchWithRetry('/properties?featured=true&limit=6', {}, 2);
+    
+    setFeaturedProperties(response.data.properties || []);
+  } catch (error) {
+    console.error('Error fetching featured properties:', error);
+    setLoadingMessage(error.message || 'Unable to load properties. Please refresh the page.');
+    
+    // Show a manual retry button
+    setTimeout(() => {
+      if (loading) {
+        setLoadingMessage('Still loading? Click to retry →');
+      }
+    }, 8000);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -35,7 +51,7 @@ const Home = () => {
     { name: 'For Sale', emoji: '🏠', color: 'bg-emerald-100 text-emerald-700', hoverColor: 'hover:bg-emerald-200', description: 'Find your dream home' },
     { name: 'To Let', emoji: '🔑', color: 'bg-blue-100 text-blue-700', hoverColor: 'hover:bg-blue-200', description: 'Rent your ideal space' },
     { name: 'Land', emoji: '🌍', color: 'bg-amber-100 text-amber-700', hoverColor: 'hover:bg-amber-200', description: 'Invest in prime land' },
-    { name: 'Short-term', emoji: '🏨', color: 'bg-purple-100 text-purple-700', hoverColor: 'hover:bg-purple-2003', description: 'BnB & vacation stays' },
+    { name: 'Short-term', emoji: '🏨', color: 'bg-purple-100 text-purple-700', hoverColor: 'hover:bg-purple-200', description: 'BnB & vacation stays' },
   ];
 
   return (
@@ -122,8 +138,11 @@ const Home = () => {
           
           {loading ? (
             <div className="text-center py-12">
-              <div className="inline-block w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-              <p className="mt-4 text-gray-500">Loading featured properties...</p>
+              <div className="inline-block w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+              <p className="text-gray-600">{loadingMessage}</p>
+              {loadingMessage.includes('Retrying') && (
+                <p className="text-sm text-gray-400 mt-2">This may take up to 15 seconds on first load</p>
+              )}
             </div>
           ) : featuredProperties.length === 0 ? (
             <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
