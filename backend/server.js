@@ -31,6 +31,7 @@ const allowedOrigins = [
   'https://rentwiseproperties.netlify.app',
   'http://localhost:5173',
   'http://localhost:5173/',
+  'http://localhost:5174',
   process.env.FRONTEND_URL
 ].filter(Boolean);
 
@@ -58,6 +59,7 @@ app.use(cors({
     if (isAllowed) {
       callback(null, true);
     } else {
+      console.log('CORS blocked:', normalizedOrigin);
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -80,12 +82,30 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Apply rate limiting to API routes
 app.use('/api', limiter);
 
-// Health check (before any routes that might intercept)
+// Root endpoint (for quick testing and keep-alive)
+app.get('/', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    message: 'RentWise Properties API is running',
+    version: '1.0.0',
+    endpoints: {
+      health: '/health',
+      api: '/api',
+      properties: '/api/properties',
+      auth: '/api/auth',
+      inquiries: '/api/inquiries',
+      articles: '/api/articles'
+    }
+  });
+});
+
+// Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     message: 'RentWise Properties API is running',
     timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
     routes: {
       auth: '/api/auth',
       properties: '/api/properties',
@@ -148,4 +168,7 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`📡 Health check: http://localhost:${PORT}/health`);
+  console.log(`📍 API: http://localhost:${PORT}/api/properties`);
 });
