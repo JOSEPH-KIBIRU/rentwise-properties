@@ -167,8 +167,9 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.listen(PORT, () => {
+
+app.listen(PORT, '0.0.0.0', () => {  // ✅ Bind to all network interfaces
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📡 Health check: http://localhost:${PORT}/health`);
-  console.log(`📍 API: http://localhost:${PORT}/api/properties`);
+  console.log(`📡 Health check: http://0.0.0.0:${PORT}/health`);
+  console.log(`🌍 Listening on all interfaces (0.0.0.0)`);
 });
