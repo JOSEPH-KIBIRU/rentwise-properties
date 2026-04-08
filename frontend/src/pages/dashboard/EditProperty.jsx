@@ -56,43 +56,51 @@ const EditProperty = () => {
     return new Intl.NumberFormat('en-KE').format(priceNum);
   };
 
-  const fetchProperty = async () => {
-    try {
-      setFetching(true);
-      console.log('Calling API: /properties/id/${id}');
-      
-      const { data } = await api.get(`/properties/id/${id}`);
-      console.log('API Response:', data);
-      
-      const property = data.property;
-      
-      setFormData({
-        title: property.title || '',
-        description: property.description || '',
-        category: property.category || 'For Sale',
-        type: property.type || 'House',
-        price: formatPriceForDisplay(property.price),
-        price_period: property.price_period || 'month',
-        location: property.location || '',
-        address: property.address || '',
-        bedrooms: property.bedrooms || '',
-        bathrooms: property.bathrooms || '',
-        area: property.area || '',
-        area_unit: property.area_unit || 'sqft',
-        features: property.features ? property.features.join(', ') : '',
-        amenities: property.amenities ? property.amenities.join(', ') : ''
-      });
-      
-      setExistingImages(property.images || []);
-    } catch (error) {
-      console.error('Error fetching property:', error);
-      console.error('Error response:', error.response?.data);
-      toast.error(error.response?.data?.error || 'Failed to load property');
+ const fetchProperty = async () => {
+  try {
+    setFetching(true);
+    console.log('Fetching property with ID:', id);
+    
+    // Try this approach instead - get all properties and filter
+    const { data } = await api.get(`/properties?limit=100`);
+    console.log('All properties:', data.properties);
+    
+    const property = data.properties.find(p => p.id === parseInt(id));
+    
+    if (!property) {
+      toast.error('Property not found');
       navigate('/dashboard/properties');
-    } finally {
-      setFetching(false);
+      return;
     }
-  };
+    
+    console.log('Found property:', property);
+    
+    setFormData({
+      title: property.title || '',
+      description: property.description || '',
+      category: property.category || 'For Sale',
+      type: property.type || 'House',
+      price: formatPriceForDisplay(property.price),
+      price_period: property.price_period || 'month',
+      location: property.location || '',
+      address: property.address || '',
+      bedrooms: property.bedrooms || '',
+      bathrooms: property.bathrooms || '',
+      area: property.area || '',
+      area_unit: property.area_unit || 'sqft',
+      features: property.features ? property.features.join(', ') : '',
+      amenities: property.amenities ? property.amenities.join(', ') : ''
+    });
+    
+    setExistingImages(property.images || []);
+  } catch (error) {
+    console.error('Error fetching property:', error);
+    toast.error('Failed to load property');
+    navigate('/dashboard/properties');
+  } finally {
+    setFetching(false);
+  }
+};
 
   const handleChange = (e) => {
     const { name, value } = e.target;
