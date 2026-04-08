@@ -2,8 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { supabase } from '../../lib/supabase'; // ✅ Ensure this path matches your project
-
+import { supabase } from '../../services/supabase';
 const EditProperty = () => {
   const { id } = useParams();
   const navigate = useNavigate();
