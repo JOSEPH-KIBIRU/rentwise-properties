@@ -1,10 +1,11 @@
+// src/pages/dashboard/EditProperty.jsx
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import api from '../../services/api';
+import { supabase } from '../../lib/supabase'; // ✅ Ensure this path matches your project
 
 const EditProperty = () => {
-  const { id } = useParams(); // ✅ Use ID from URL (not slug)
+  const { id } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
@@ -40,67 +41,69 @@ const EditProperty = () => {
 
   useEffect(() => {
     if (id) {
-      console.log('Fetching property with ID:', id);
       fetchProperty();
     } else {
-      console.error('No ID found in URL params');
       toast.error('Invalid property ID');
       navigate('/dashboard/properties');
     }
   }, [id]);
 
+  // ✅ Safe price formatter for display
   const formatPriceForDisplay = (price) => {
-    if (!price && price !== 0) return '';
-    const priceNum = typeof price === 'string' ? parseFloat(price.replace(/,/g, '')) : price;
-    if (isNaN(priceNum)) return '';
-    return new Intl.NumberFormat('en-KE').format(priceNum);
+    if (price === null || price === undefined) return '';
+    const num = typeof price === 'string' ? parseFloat(price.replace(/,/g, '')) : price;
+    return isNaN(num) ? '' : new Intl.NumberFormat('en-KE').format(num);
   };
 
- const fetchProperty = async () => {
-  try {
-    setFetching(true);
-    console.log('Fetching property with ID:', id);
-    
-    // Try this approach instead - get all properties and filter
-    const { data } = await api.get(`/properties?limit=100`);
-    console.log('All properties:', data.properties);
-    
-    const property = data.properties.find(p => p.id === parseInt(id));
-    
-    if (!property) {
-      toast.error('Property not found');
+  // ✅ Fetch single property using Supabase (fixes 404 + UUID issue)
+  const fetchProperty = async () => {
+    try {
+      setFetching(true);
+      
+      const {  property, error } = await supabase
+        .from('properties')
+        .select('*')
+        .eq('id', id) // ✅ id is already a UUID string from useParams()
+        .maybeSingle(); // ✅ Returns null instead of throwing if not found
+
+      if (error) throw error;
+      
+      if (!property) {
+        toast.error('Property not found or access denied');
+        navigate('/dashboard/properties');
+        return;
+      }
+
+      // ✅ Format arrays safely
+      const fmtArr = (arr) => Array.isArray(arr) ? arr.join(', ') : '';
+
+      setFormData({
+        title: property.title || '',
+        description: property.description || '',
+        category: property.category || 'For Sale',
+        type: property.type || 'House',
+        price: formatPriceForDisplay(property.price),
+        price_period: property.price_period || 'month',
+        location: property.location || '',
+        address: property.address || '',
+        bedrooms: property.bedrooms ?? '',
+        bathrooms: property.bathrooms ?? '',
+        area: property.area ?? '',
+        area_unit: property.area_unit || 'sqft',
+        features: fmtArr(property.features),
+        amenities: fmtArr(property.amenities)
+      });
+
+      setExistingImages(property.images || []);
+      
+    } catch (err) {
+      console.error('Fetch error:', err);
+      toast.error('Failed to load property');
       navigate('/dashboard/properties');
-      return;
+    } finally {
+      setFetching(false);
     }
-    
-    console.log('Found property:', property);
-    
-    setFormData({
-      title: property.title || '',
-      description: property.description || '',
-      category: property.category || 'For Sale',
-      type: property.type || 'House',
-      price: formatPriceForDisplay(property.price),
-      price_period: property.price_period || 'month',
-      location: property.location || '',
-      address: property.address || '',
-      bedrooms: property.bedrooms || '',
-      bathrooms: property.bathrooms || '',
-      area: property.area || '',
-      area_unit: property.area_unit || 'sqft',
-      features: property.features ? property.features.join(', ') : '',
-      amenities: property.amenities ? property.amenities.join(', ') : ''
-    });
-    
-    setExistingImages(property.images || []);
-  } catch (error) {
-    console.error('Error fetching property:', error);
-    toast.error('Failed to load property');
-    navigate('/dashboard/properties');
-  } finally {
-    setFetching(false);
-  }
-};
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -158,6 +161,7 @@ const EditProperty = () => {
     setImagePreviews(prev => prev.filter((_, i) => i !== index));
   };
 
+  // ✅ Update property using Supabase (fixes 404 + UUID issue)
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -190,29 +194,29 @@ const EditProperty = () => {
         bathrooms: formData.bathrooms ? parseFloat(formData.bathrooms) : null,
         area: formData.area ? parseFloat(formData.area) : null,
         area_unit: formData.area_unit,
-        features: formData.features ? formData.features.split(',').map(f => f.trim()).filter(f => f) : [],
-        amenities: formData.amenities ? formData.amenities.split(',').map(a => a.trim()).filter(a => a) : []
+        features: formData.features ? formData.features.split(',').map(f => f.trim()).filter(Boolean) : [],
+        amenities: formData.amenities ? formData.amenities.split(',').map(a => a.trim()).filter(Boolean) : [],
+        updated_at: new Date().toISOString()
       };
-      
-      console.log('Updating property ID:', id);
-      const response = await api.put(`/properties/${id}`, updateData);
-      
-      if (response.data.success) {
-        toast.success('Property updated successfully! 🎉');
-        setTimeout(() => {
-          navigate('/dashboard/properties');
-        }, 1500);
-      } else {
-        toast.error('Update failed. Please try again.');
-      }
+
+      const { error } = await supabase
+        .from('properties')
+        .update(updateData)
+        .eq('id', id); // ✅ UUID string match
+
+      if (error) throw error;
+
+      toast.success('Property updated successfully! 🎉');
+      setTimeout(() => navigate('/dashboard/properties'), 1500);
       
     } catch (err) {
-      console.error('Error updating property:', err);
-      toast.error(err.response?.data?.error || 'Failed to update property');
+      console.error('Update error:', err);
+      toast.error(err.message || 'Failed to update property');
     } finally {
       setLoading(false);
     }
   };
+
 
   if (fetching) {
     return (
