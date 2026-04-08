@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import api from '../../services/api';
 
 const EditProperty = () => {
-  const { id } = useParams(); // Get ID from URL
+  const { slug } = useParams(); 
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
@@ -28,6 +28,7 @@ const EditProperty = () => {
   const [imagePreviews, setImagePreviews] = useState([]);
   const [existingImages, setExistingImages] = useState([]);
   const [removedImages, setRemovedImages] = useState([]);
+  const [propertyId, setPropertyId] = useState(null); // Store the actual ID for updates
 
   const categories = ['For Sale', 'To Let', 'Land', 'Short-term'];
   const propertyTypes = ['House', 'Apartment', 'Commercial', 'Land', 'Townhouse', 'Villa'];
@@ -39,51 +40,59 @@ const EditProperty = () => {
   ];
 
   useEffect(() => {
-    if (id) {
+    if (slug) {
       fetchProperty();
     }
-  }, [id]);
+  }, [slug]);
 
- const formatPriceForDisplay = (price) => {
-  if (!price && price !== 0) return '';
-  // Ensure price is a number
-  const priceNum = typeof price === 'string' ? parseFloat(price.replace(/,/g, '')) : price;
-  if (isNaN(priceNum)) return '';
-  // Format with commas
-  return new Intl.NumberFormat('en-KE').format(priceNum);
-};
+  const formatPriceForDisplay = (price) => {
+    if (!price && price !== 0) return '';
+    const priceNum = typeof price === 'string' ? parseFloat(price.replace(/,/g, '')) : price;
+    if (isNaN(priceNum)) return '';
+    return new Intl.NumberFormat('en-KE').format(priceNum);
+  };
 
-const fetchProperty = async () => {
-  try {
-    const { data } = await api.get(`/properties/id/${id}`);
-    const property = data.property;
-    
-    setFormData({
-      title: property.title,
-      description: property.description,
-      category: property.category,
-      type: property.type || 'House',
-      price: formatPriceForDisplay(property.price), // This should now show "1,200,000"
-      price_period: property.price_period || 'month',
-      location: property.location,
-      address: property.address || '',
-      bedrooms: property.bedrooms || '',
-      bathrooms: property.bathrooms || '',
-      area: property.area || '',
-      area_unit: property.area_unit || 'sqft',
-      features: property.features ? property.features.join(', ') : '',
-      amenities: property.amenities ? property.amenities.join(', ') : ''
-    });
-    
-    setExistingImages(property.images || []);
-  } catch (error) {
-    console.error('Error fetching property:', error);
-    toast.error('Failed to load property');
-    navigate('/dashboard/properties');
-  } finally {
-    setFetching(false);
-  }
-};
+  const fetchProperty = async () => {
+    try {
+      setFetching(true);
+      console.log('Fetching property with slug:', slug);
+      
+      // Fetch by slug instead of ID
+      const { data } = await api.get(`/properties/slug/${slug}`);
+      console.log('Property data:', data);
+      
+      const property = data.property;
+      
+      // Store the actual property ID for updates
+      setPropertyId(property.id);
+      
+      setFormData({
+        title: property.title || '',
+        description: property.description || '',
+        category: property.category || 'For Sale',
+        type: property.type || 'House',
+        price: formatPriceForDisplay(property.price),
+        price_period: property.price_period || 'month',
+        location: property.location || '',
+        address: property.address || '',
+        bedrooms: property.bedrooms || '',
+        bathrooms: property.bathrooms || '',
+        area: property.area || '',
+        area_unit: property.area_unit || 'sqft',
+        features: property.features ? property.features.join(', ') : '',
+        amenities: property.amenities ? property.amenities.join(', ') : ''
+      });
+      
+      setExistingImages(property.images || []);
+    } catch (error) {
+      console.error('Error fetching property:', error);
+      console.error('Error response:', error.response?.data);
+      toast.error(error.response?.data?.error || 'Failed to load property');
+      navigate('/dashboard/properties');
+    } finally {
+      setFetching(false);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -141,69 +150,78 @@ const fetchProperty = async () => {
     setImagePreviews(prev => prev.filter((_, i) => i !== index));
   };
 
- const handleSubmit = async (e) => {
-  e.preventDefault();
-  
-  // Get raw price without commas
-  const rawPrice = formData.price.replace(/,/g, '');
-  const priceNumber = parseFloat(rawPrice);
-  
-  
-  if (isNaN(priceNumber) || priceNumber <= 0) {
-    toast.error('Please enter a valid price');
-    return;
-  }
-
-  setLoading(true);
-
-  try {
-    // Prepare update data - remove any empty strings
-    const updateData = {
-      title: formData.title,
-      description: formData.description,
-      category: formData.category,
-      type: formData.type,
-      price: priceNumber,
-      price_period: formData.price_period,
-      location: formData.location,
-      address: formData.address,
-      bedrooms: formData.bedrooms ? parseInt(formData.bedrooms) : null,
-      bathrooms: formData.bathrooms ? parseFloat(formData.bathrooms) : null,
-      area: formData.area ? parseFloat(formData.area) : null,
-      area_unit: formData.area_unit,
-      features: formData.features ? formData.features.split(',').map(f => f.trim()).filter(f => f) : [],
-      amenities: formData.amenities ? formData.amenities.split(',').map(a => a.trim()).filter(a => a) : []
-    };
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     
-    const response = await api.put(`/properties/${id}`, updateData);
+    // Get raw price without commas
+    const rawPrice = formData.price.replace(/,/g, '');
+    const priceNumber = parseFloat(rawPrice);
     
-    if (response.data.success) {
-      toast.success('Property updated successfully! 🎉');
-      setTimeout(() => {
+    if (isNaN(priceNumber) || priceNumber <= 0) {
+      toast.error('Please enter a valid price');
+      return;
+    }
+
+    if (!propertyId) {
+      toast.error('Property ID not found');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Prepare update data
+      const updateData = {
+        title: formData.title,
+        description: formData.description,
+        category: formData.category,
+        type: formData.type,
+        price: priceNumber,
+        price_period: formData.price_period,
+        location: formData.location,
+        address: formData.address,
+        bedrooms: formData.bedrooms ? parseInt(formData.bedrooms) : null,
+        bathrooms: formData.bathrooms ? parseFloat(formData.bathrooms) : null,
+        area: formData.area ? parseFloat(formData.area) : null,
+        area_unit: formData.area_unit,
+        features: formData.features ? formData.features.split(',').map(f => f.trim()).filter(f => f) : [],
+        amenities: formData.amenities ? formData.amenities.split(',').map(a => a.trim()).filter(a => a) : []
+      };
+      
+      console.log('Updating property with ID:', propertyId);
+      console.log('Update data:', updateData);
+      
+      const response = await api.put(`/properties/${propertyId}`, updateData);
+      
+      if (response.data.success) {
+        toast.success('Property updated successfully! 🎉');
+        setTimeout(() => {
+          navigate('/dashboard/properties');
+        }, 1500);
+      } else {
+        toast.error('Update failed. Please try again.');
+      }
+      
+    } catch (err) {
+      console.error('Error updating property:', err);
+      console.error('Error response:', err.response?.data);
+      
+      if (err.response?.status === 404) {
+        toast.error('Property not found. It may have been deleted.');
         navigate('/dashboard/properties');
-      }, 1500);
-    } else {
-      toast.error('Update failed. Please try again.');
+      } else {
+        toast.error(err.response?.data?.error || 'Failed to update property. Please try again.');
+      }
+    } finally {
+      setLoading(false);
     }
-    
-  } catch (err) {
-    console.error('Error updating property:', err);
-    console.error('Error response:', err.response?.data);
-    
-    if (err.response?.status === 404) {
-      toast.error('Property not found. It may have been deleted.');
-      navigate('/dashboard/properties');
-    } else {
-      toast.error(err.response?.data?.error || 'Failed to update property. Please try again.');
-    }
-  } finally {
-    setLoading(false);
-  }
-};
+  };
+
   if (fetching) {
     return (
       <div className="text-center py-12">
         <div className="inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        <p className="mt-2 text-gray-500">Loading property...</p>
       </div>
     );
   }
@@ -216,6 +234,7 @@ const fetchProperty = async () => {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Rest of your form JSX remains exactly the same */}
         {/* Image Upload Section */}
         <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Property Images</h2>
