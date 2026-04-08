@@ -2,7 +2,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { supabase } from '../../services/supabase';
+import api from '../../services/api';
+
 const EditProperty = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -216,6 +217,31 @@ const EditProperty = () => {
     }
   };
 
+  // ✅ Optional: Handle image upload to Supabase Storage (uncomment when ready)
+  /*
+  const handleImageUpload = async () => {
+    if (selectedImages.length === 0) return existingImages;
+    
+    const uploadedUrls = [];
+    for (const file of selectedImages) {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
+      
+      const { error, data } = await supabase.storage
+        .from('property-images') // ✅ Your bucket name
+        .upload(fileName, file);
+        
+      if (error) throw error;
+      
+      const {  { publicUrl } } = supabase.storage
+        .from('property-images')
+        .getPublicUrl(fileName);
+        
+      uploadedUrls.push(publicUrl);
+    }
+    return [...existingImages, ...uploadedUrls];
+  };
+  */
 
   if (fetching) {
     return (
