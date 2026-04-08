@@ -4,11 +4,10 @@ import toast from 'react-hot-toast';
 import api from '../../services/api';
 
 const EditProperty = () => {
-  const { id, slug } = useParams(); 
+  const { id } = useParams(); // ✅ Use ID from URL (not slug)
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
-  const [propertyId, setPropertyId] = useState(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -30,14 +29,25 @@ const EditProperty = () => {
   const [existingImages, setExistingImages] = useState([]);
   const [removedImages, setRemovedImages] = useState([]);
 
-  const identifier = id || slug; 
-  const isId = !!id; 
+  const categories = ['For Sale', 'To Let', 'Land', 'Short-term'];
+  const propertyTypes = ['House', 'Apartment', 'Commercial', 'Land', 'Townhouse', 'Villa'];
+  const areaUnits = ['sqft', 'sqm', 'acres'];
+  const pricePeriods = [
+    { value: 'month', label: 'Per Month' },
+    { value: 'year', label: 'Per Year' },
+    { value: 'one-time', label: 'One Time' }
+  ];
 
   useEffect(() => {
-    if (identifier) {
+    if (id) {
+      console.log('Fetching property with ID:', id);
       fetchProperty();
+    } else {
+      console.error('No ID found in URL params');
+      toast.error('Invalid property ID');
+      navigate('/dashboard/properties');
     }
-  }, [identifier]);
+  }, [id]);
 
   const formatPriceForDisplay = (price) => {
     if (!price && price !== 0) return '';
@@ -49,20 +59,12 @@ const EditProperty = () => {
   const fetchProperty = async () => {
     try {
       setFetching(true);
+      console.log('Calling API: /properties/id/${id}');
       
-      let response;
-      if (isId) {
-        console.log('Fetching by ID:', identifier);
-        response = await api.get(`/properties/id/${identifier}`);
-      } else {
-        console.log('Fetching by slug:', identifier);
-        response = await api.get(`/properties/slug/${identifier}`);
-      }
+      const { data } = await api.get(`/properties/id/${id}`);
+      console.log('API Response:', data);
       
-      console.log('Property data:', response.data);
-      
-      const property = response.data.property;
-      setPropertyId(property.id);
+      const property = data.property;
       
       setFormData({
         title: property.title || '',
@@ -92,7 +94,6 @@ const EditProperty = () => {
     }
   };
 
-  // Rest of your component remains the same...
   const handleChange = (e) => {
     const { name, value } = e.target;
     
@@ -160,7 +161,7 @@ const EditProperty = () => {
       return;
     }
 
-    if (!propertyId) {
+    if (!id) {
       toast.error('Property ID not found');
       return;
     }
@@ -185,7 +186,8 @@ const EditProperty = () => {
         amenities: formData.amenities ? formData.amenities.split(',').map(a => a.trim()).filter(a => a) : []
       };
       
-      const response = await api.put(`/properties/${propertyId}`, updateData);
+      console.log('Updating property ID:', id);
+      const response = await api.put(`/properties/${id}`, updateData);
       
       if (response.data.success) {
         toast.success('Property updated successfully! 🎉');
@@ -221,7 +223,7 @@ const EditProperty = () => {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Image Upload Section - Same as before */}
+        {/* Image Upload Section */}
         <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Property Images</h2>
           
@@ -317,10 +319,9 @@ const EditProperty = () => {
                   onChange={handleChange}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="For Sale">For Sale</option>
-                  <option value="To Let">To Let</option>
-                  <option value="Land">Land</option>
-                  <option value="Short-term">Short-term / BnB</option>
+                  {categories.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
                 </select>
               </div>
 
@@ -332,12 +333,9 @@ const EditProperty = () => {
                   onChange={handleChange}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="House">House</option>
-                  <option value="Apartment">Apartment</option>
-                  <option value="Commercial">Commercial</option>
-                  <option value="Land">Land</option>
-                  <option value="Townhouse">Townhouse</option>
-                  <option value="Villa">Villa</option>
+                  {propertyTypes.map(type => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -365,9 +363,9 @@ const EditProperty = () => {
                     onChange={handleChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="month">Per Month</option>
-                    <option value="year">Per Year</option>
-                    <option value="one-time">One Time</option>
+                    {pricePeriods.map(period => (
+                      <option key={period.value} value={period.value}>{period.label}</option>
+                    ))}
                   </select>
                 </div>
               )}
@@ -454,9 +452,9 @@ const EditProperty = () => {
                     onChange={handleChange}
                     className="w-24 px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="sqft">sqft</option>
-                    <option value="sqm">sqm</option>
-                    <option value="acres">acres</option>
+                    {areaUnits.map(unit => (
+                      <option key={unit} value={unit}>{unit}</option>
+                    ))}
                   </select>
                 </div>
               </div>
