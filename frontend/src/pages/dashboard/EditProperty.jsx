@@ -4,10 +4,11 @@ import toast from 'react-hot-toast';
 import api from '../../services/api';
 
 const EditProperty = () => {
-  const { slug } = useParams(); 
+  const { id, slug } = useParams(); 
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
+  const [propertyId, setPropertyId] = useState(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -28,22 +29,15 @@ const EditProperty = () => {
   const [imagePreviews, setImagePreviews] = useState([]);
   const [existingImages, setExistingImages] = useState([]);
   const [removedImages, setRemovedImages] = useState([]);
-  const [propertyId, setPropertyId] = useState(null); // Store the actual ID for updates
 
-  const categories = ['For Sale', 'To Let', 'Land', 'Short-term'];
-  const propertyTypes = ['House', 'Apartment', 'Commercial', 'Land', 'Townhouse', 'Villa'];
-  const areaUnits = ['sqft', 'sqm', 'acres'];
-  const pricePeriods = [
-    { value: 'month', label: 'Per Month' },
-    { value: 'year', label: 'Per Year' },
-    { value: 'one-time', label: 'One Time' }
-  ];
+  const identifier = id || slug; 
+  const isId = !!id; 
 
   useEffect(() => {
-    if (slug) {
+    if (identifier) {
       fetchProperty();
     }
-  }, [slug]);
+  }, [identifier]);
 
   const formatPriceForDisplay = (price) => {
     if (!price && price !== 0) return '';
@@ -55,15 +49,19 @@ const EditProperty = () => {
   const fetchProperty = async () => {
     try {
       setFetching(true);
-      console.log('Fetching property with slug:', slug);
       
-      // Fetch by slug instead of ID
-      const { data } = await api.get(`/properties/slug/${slug}`);
-      console.log('Property data:', data);
+      let response;
+      if (isId) {
+        console.log('Fetching by ID:', identifier);
+        response = await api.get(`/properties/id/${identifier}`);
+      } else {
+        console.log('Fetching by slug:', identifier);
+        response = await api.get(`/properties/slug/${identifier}`);
+      }
       
-      const property = data.property;
+      console.log('Property data:', response.data);
       
-      // Store the actual property ID for updates
+      const property = response.data.property;
       setPropertyId(property.id);
       
       setFormData({
@@ -94,6 +92,7 @@ const EditProperty = () => {
     }
   };
 
+  // Rest of your component remains the same...
   const handleChange = (e) => {
     const { name, value } = e.target;
     
@@ -153,7 +152,6 @@ const EditProperty = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Get raw price without commas
     const rawPrice = formData.price.replace(/,/g, '');
     const priceNumber = parseFloat(rawPrice);
     
@@ -170,7 +168,6 @@ const EditProperty = () => {
     setLoading(true);
 
     try {
-      // Prepare update data
       const updateData = {
         title: formData.title,
         description: formData.description,
@@ -188,9 +185,6 @@ const EditProperty = () => {
         amenities: formData.amenities ? formData.amenities.split(',').map(a => a.trim()).filter(a => a) : []
       };
       
-      console.log('Updating property with ID:', propertyId);
-      console.log('Update data:', updateData);
-      
       const response = await api.put(`/properties/${propertyId}`, updateData);
       
       if (response.data.success) {
@@ -204,14 +198,7 @@ const EditProperty = () => {
       
     } catch (err) {
       console.error('Error updating property:', err);
-      console.error('Error response:', err.response?.data);
-      
-      if (err.response?.status === 404) {
-        toast.error('Property not found. It may have been deleted.');
-        navigate('/dashboard/properties');
-      } else {
-        toast.error(err.response?.data?.error || 'Failed to update property. Please try again.');
-      }
+      toast.error(err.response?.data?.error || 'Failed to update property');
     } finally {
       setLoading(false);
     }
@@ -234,23 +221,17 @@ const EditProperty = () => {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Rest of your form JSX remains exactly the same */}
-        {/* Image Upload Section */}
+        {/* Image Upload Section - Same as before */}
         <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Property Images</h2>
           
-          {/* Existing Images */}
           {existingImages.length > 0 && (
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">Current Images</label>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {existingImages.map((img, index) => (
                   <div key={index} className="relative group">
-                    <img
-                      src={img}
-                      alt={`Property ${index + 1}`}
-                      className="w-full h-32 object-cover rounded-lg"
-                    />
+                    <img src={img} alt={`Property ${index + 1}`} className="w-full h-32 object-cover rounded-lg" />
                     <button
                       type="button"
                       onClick={() => removeExistingImage(index)}
@@ -266,18 +247,13 @@ const EditProperty = () => {
             </div>
           )}
           
-          {/* New Images Preview */}
           {imagePreviews.length > 0 && (
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">New Images</label>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {imagePreviews.map((preview, index) => (
                   <div key={index} className="relative group">
-                    <img
-                      src={preview}
-                      alt={`New ${index + 1}`}
-                      className="w-full h-32 object-cover rounded-lg"
-                    />
+                    <img src={preview} alt={`New ${index + 1}`} className="w-full h-32 object-cover rounded-lg" />
                     <button
                       type="button"
                       onClick={() => removeNewImage(index)}
@@ -309,9 +285,7 @@ const EditProperty = () => {
           
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Property Title *
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Property Title *</label>
               <input
                 type="text"
                 name="title"
@@ -323,9 +297,7 @@ const EditProperty = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Description *
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
               <textarea
                 name="description"
                 required
@@ -338,43 +310,41 @@ const EditProperty = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Category *
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
                 <select
                   name="category"
                   value={formData.category}
                   onChange={handleChange}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  {categories.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
+                  <option value="For Sale">For Sale</option>
+                  <option value="To Let">To Let</option>
+                  <option value="Land">Land</option>
+                  <option value="Short-term">Short-term / BnB</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Property Type
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Property Type</label>
                 <select
                   name="type"
                   value={formData.type}
                   onChange={handleChange}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  {propertyTypes.map(type => (
-                    <option key={type} value={type}>{type}</option>
-                  ))}
+                  <option value="House">House</option>
+                  <option value="Apartment">Apartment</option>
+                  <option value="Commercial">Commercial</option>
+                  <option value="Land">Land</option>
+                  <option value="Townhouse">Townhouse</option>
+                  <option value="Villa">Villa</option>
                 </select>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Price (KES) *
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Price (KES) *</label>
                 <input
                   type="text"
                   name="price"
@@ -384,23 +354,20 @@ const EditProperty = () => {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="e.g., 75,000"
                 />
-                <p className="text-xs text-gray-500 mt-1">Enter price with or without commas</p>
               </div>
 
               {formData.category === 'To Let' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Price Period
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Price Period</label>
                   <select
                     name="price_period"
                     value={formData.price_period}
                     onChange={handleChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    {pricePeriods.map(period => (
-                      <option key={period.value} value={period.value}>{period.label}</option>
-                    ))}
+                    <option value="month">Per Month</option>
+                    <option value="year">Per Year</option>
+                    <option value="one-time">One Time</option>
                   </select>
                 </div>
               )}
@@ -414,9 +381,7 @@ const EditProperty = () => {
           
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Location (Area/City) *
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Location (Area/City) *</label>
               <input
                 type="text"
                 name="location"
@@ -428,9 +393,7 @@ const EditProperty = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Full Address
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Full Address</label>
               <input
                 type="text"
                 name="address"
@@ -449,9 +412,7 @@ const EditProperty = () => {
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Bedrooms
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Bedrooms</label>
                 <input
                   type="number"
                   name="bedrooms"
@@ -464,9 +425,7 @@ const EditProperty = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Bathrooms
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Bathrooms</label>
                 <input
                   type="number"
                   step="0.5"
@@ -479,9 +438,7 @@ const EditProperty = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Area
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Area</label>
                 <div className="flex gap-2">
                   <input
                     type="number"
@@ -497,9 +454,9 @@ const EditProperty = () => {
                     onChange={handleChange}
                     className="w-24 px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    {areaUnits.map(unit => (
-                      <option key={unit} value={unit}>{unit}</option>
-                    ))}
+                    <option value="sqft">sqft</option>
+                    <option value="sqm">sqm</option>
+                    <option value="acres">acres</option>
                   </select>
                 </div>
               </div>
@@ -512,9 +469,7 @@ const EditProperty = () => {
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Land Details</h2>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Land Size
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Land Size</label>
               <div className="flex gap-2">
                 <input
                   type="number"
@@ -545,9 +500,7 @@ const EditProperty = () => {
           
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Features (comma separated)
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Features (comma separated)</label>
               <input
                 type="text"
                 name="features"
@@ -559,9 +512,7 @@ const EditProperty = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Amenities (comma separated)
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Amenities (comma separated)</label>
               <input
                 type="text"
                 name="amenities"
