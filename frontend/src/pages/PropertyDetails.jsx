@@ -4,6 +4,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../hooks/useAuth";
 import WhatsAppButton from '../components/WhatsAppButton'; // ✅ WhatsApp import
+import ShareButton from '../components/ShareButton'; // ✅ Share button import
 
 const PropertyDetails = () => {
   const { slug } = useParams();
@@ -136,10 +137,14 @@ const PropertyDetails = () => {
           </Link>
         </div>
 
-        {/* Property Title */}
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          {property.title}
-        </h1>
+        {/* Property Title with Share Button */}
+        <div className="flex justify-between items-start mb-2">
+          <h1 className="text-3xl font-bold text-gray-900">
+            {property.title}
+          </h1>
+          {/* ✅ SHARE BUTTON ADDED HERE */}
+          <ShareButton property={property} position="left" />
+        </div>
         <p className="text-gray-600 mb-6">{property.location}</p>
 
         {/* Image Gallery */}
@@ -388,7 +393,7 @@ const PropertyDetails = () => {
         </p>
       </div>
 
-      {/* ✅ WHATSAPP FLOATING BUTTON - Added here, outside main container */}
+      {/* ✅ WHATSAPP FLOATING BUTTON */}
       <WhatsAppButton 
         property={{
           title: property.title,
