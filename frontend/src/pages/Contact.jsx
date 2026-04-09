@@ -23,14 +23,50 @@ const Contact = () => {
     setSuccess(false);
     
     try {
-      await api.post('/inquiries', {
-        ...formData,
-        property_id: null,
-      });
-      setSuccess(true);
-      setFormData({ name: '', email: '', phone: '', message: '' });
+      // Prepare data exactly as backend expects
+      const payload = {
+        name: formData.name.trim(),
+        email: formData.email.trim().toLowerCase(),
+        message: formData.message.trim(),
+      };
+      
+      // Only include phone if it has a value
+      if (formData.phone && formData.phone.trim()) {
+        payload.phone = formData.phone.trim();
+      }
+      
+      // Property ID is optional - don't send if null
+      // The backend will set it to null automatically
+      
+      console.log('Sending payload:', payload);
+      
+      const response = await api.post('/inquiries', payload);
+      
+      console.log('Response:', response.data);
+      
+      if (response.data.success) {
+        setSuccess(true);
+        setFormData({ name: '', email: '', phone: '', message: '' });
+        // Optional: Scroll to top to show success message
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        setError(response.data.error || 'Failed to send message');
+      }
     } catch (err) {
-      setError('Failed to send message. Please try again.');
+      console.error('Error details:', err);
+      
+      // Get the actual error message from the backend
+      const errorMessage = err.response?.data?.error || 
+                          err.response?.data?.message || 
+                          'Failed to send message. Please try again.';
+      
+      setError(errorMessage);
+      
+      // Log more details for debugging
+      if (err.response) {
+        console.error('Status:', err.response.status);
+        console.error('Data:', err.response.data);
+      }
     } finally {
       setLoading(false);
     }

@@ -1,7 +1,7 @@
 const multer = require('multer');
 const path = require('path');
 
-// Configure multer for memory storage
+// Configure storage
 const storage = multer.memoryStorage();
 
 // File filter for images only
@@ -17,20 +17,30 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-// Configure multer
-const upload = multer({
+// ✅ Configuration for ARTICLES (single image)
+const uploadSingleConfig = multer({
   storage: storage,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit for articles
+    fileSize: 5 * 1024 * 1024, // 5MB limit
     files: 1 // Only 1 image for cover
   },
   fileFilter: fileFilter
 });
 
+// ✅ Configuration for PROPERTIES (multiple images)
+const uploadMultipleConfig = multer({
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB per file
+    files: 10 // Allow up to 10 files for properties
+  },
+  fileFilter: fileFilter
+});
+
 // Middleware for multiple image upload (properties)
-const uploadImages = upload.array('images', 10);
+const uploadImages = uploadMultipleConfig.array('images', 10);
 
 // Middleware for single image upload (articles)
-const uploadSingle = upload.single('image');  // Field name is 'image'
+const uploadSingle = uploadSingleConfig.single('image');
 
 module.exports = { uploadImages, uploadSingle };
