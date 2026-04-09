@@ -22,6 +22,10 @@ import Inquiries from "./pages/dashboard/Inquiries";
 import Articles from "./pages/dashboard/Articles";
 import ArticleForm from "./pages/dashboard/ArticleForm";
 import EditProperty from "./pages/dashboard/EditProperty";
+import Tenants from './pages/Tenants';
+import Landlords from './pages/Landlords';
+import FAQ from './pages/FAQ';
+
 
 // Import keep-alive service
 import { keepAlive } from "./services/keepalive";
@@ -58,6 +62,10 @@ function App() {
               <Route path="/blog" element={<Blog />} />
               <Route path="/blog/:slug" element={<ArticleDetails />} />
               <Route path="/contact" element={<Contact />} />
+              <Route path="/tenants" element={<Tenants />} />
+              <Route path="/landlords" element={<Landlords />} />
+              <Route path="/faq" element={<FAQ />} />
+
 
               {/* Admin Dashboard Routes */}
               <Route path="/dashboard" element={<Dashboard />} />
