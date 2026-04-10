@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "prebuild": "node scripts/generate-sitemap.mjs",
-    "build": "vite build && shx cp public/sitemap.xml dist/sitemap.xml",
+    "build": "vite build && shx cp -f public/sitemap.xml dist/sitemap.xml && echo '✅ Sitemap copied:' && ls -la dist/sitemap.xml",
     "preview": "vite preview"
   },
   "dependencies": {
