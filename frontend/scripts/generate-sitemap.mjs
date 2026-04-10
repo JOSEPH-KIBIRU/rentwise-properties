@@ -72,7 +72,7 @@ async function generateSitemap() {
     }).filter(Boolean); // Remove null entries
 
     // 🔥 CRITICAL: XML declaration MUST be first (no spaces/BOM before it)
-    const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+    const sitemap =`<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${staticPages.map(p => `  <url>
     <loc>${baseUrl}${p.loc}</loc>
