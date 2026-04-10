@@ -19,7 +19,7 @@ const FAQ = () => {
         },
         {
           q: "What documents do I need to rent a property?",
-          a: "You'll need: 1) Valid National ID/Passport, 2) Recent pay slips (3 months) or bank statements, 3) KRA PIN certificate, 4) Previous landlord reference (if any), and 5) Recent passport photo."
+          a: "You'll need: 1) Valid National ID/Passport for residential, 2) Recent pay slips (3 months) or bank statements for commercial units, 3) KRA PIN certificate, 4) Previous landlord reference (if any), and 5) Recent passport photo."
         },
         {
           q: "How much is the security deposit?",
@@ -53,7 +53,7 @@ const FAQ = () => {
       questions: [
         {
           q: "How do you screen potential tenants?",
-          a: "We conduct comprehensive background checks including: credit history, employment verification, income verification, previous landlord references, and criminal background checks. This ensures you get reliable, responsible tenants."
+          a: "We conduct comprehensive background checks including:previous landlord references,This ensures you get reliable, responsible tenants."
         },
         {
           q: "What is your property management fee?",
@@ -61,7 +61,7 @@ const FAQ = () => {
         },
         {
           q: "How do you handle rent collection?",
-          a: "We handle all rent collection through automated systems. Tenants can pay via M-Pesa, bank transfer, or card. We follow up on late payments, send reminders, and handle any disputes. You receive your rent directly on the agreed date."
+          a: "We handle all rent collection through automated systems. Tenants can pay via M-Pesa, bank transfer. We follow up on late payments, send reminders, and handle any disputes. You receive your rent directly on the agreed date."
         },
         {
           q: "What happens if a tenant stops paying rent?",
@@ -69,7 +69,7 @@ const FAQ = () => {
         },
         {
           q: "How do you handle maintenance and repairs?",
-          a: "We have a network of vetted, licensed contractors. Tenants submit requests through our portal. For emergencies, we respond within 2 hours. For routine issues, within 48 hours. All costs are pre-approved by you before work begins."
+          a: "We have a network of vetted, qualified contractors. Tenants submit requests through our email. For emergencies, we respond within 2 hours. For routine issues, within 48 hours. All costs are pre-approved by you before work begins."
         },
         {
           q: "What kind of properties do you manage?",
