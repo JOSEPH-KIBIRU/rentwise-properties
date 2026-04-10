@@ -372,7 +372,7 @@ const PropertyDetails = () => {
                 </form>
               )}
 
-              {!isAuthenticated && (
+              {/* {!isAuthenticated && (
                 <p className="mt-4 text-sm text-gray-500 text-center">
                   <Link
                     to="/login"
@@ -382,7 +382,7 @@ const PropertyDetails = () => {
                   </Link>{" "}
                   to save this property to your favorites.
                 </p>
-              )}
+              )} */}
             </div>
           </div>
         </div>
