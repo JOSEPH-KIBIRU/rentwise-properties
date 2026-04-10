@@ -5,6 +5,13 @@
 [build.environment]
   NODE_VERSION = "20"  
 
+# 🔑 CRITICAL: Bypasses SPA routing so Google gets the actual XML file
+[[redirects]]
+  from = "/sitemap.xml"
+  to = "/sitemap.xml"
+  status = 200
+  force = true
+
 [[headers]]
   for = "/sitemap.xml"
   [headers.values]
