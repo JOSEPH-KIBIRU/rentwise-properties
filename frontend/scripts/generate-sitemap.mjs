@@ -1,78 +1,101 @@
 // scripts/generate-sitemap.mjs
-import dotenv from 'dotenv';
-dotenv.config();
+import 'dotenv/config';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Trim to remove accidental spaces/newlines
+// Get Supabase credentials from environment
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL?.trim();
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY?.trim();
 
-// Safe debug output (never logs full key)
-console.log('🔍 URL:', SUPABASE_URL?.substring(0, 25) + '...');
-console.log('🔑 Key length:', SUPABASE_KEY?.length || 0, 'chars');
-console.log('🔑 Key starts with:', SUPABASE_KEY?.substring(0, 12) + '...');
+// 🔧 UPDATE THESE to match your Supabase setup
+const TABLE_NAME = 'properties';
+const URL_COLUMN = 'slug'; // Change to 'id' if you use IDs in URLs
 
-if (!SUPABASE_URL || !SUPABASE_KEY || SUPABASE_KEY.length < 50) {
+// Validate environment variables
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  console.error('❌ Missing Supabase env variables. Check your .env file.');
+  process.exit(1);
+}
+
+if (SUPABASE_KEY.length < 50) {
   console.error('❌ Invalid Supabase key. Check .env format & re-copy from dashboard.');
   process.exit(1);
 }
 
-const TABLE_NAME = 'properties';
-const URL_COLUMN = 'slug'; // Update if your column is named differently
-
 async function generateSitemap() {
-  const apiUrl = `${SUPABASE_URL}/rest/v1/${TABLE_NAME}?select=${URL_COLUMN}`;
-  
-  const res = await fetch(apiUrl, {
-    headers: {
-      apikey: SUPABASE_KEY,
-      Authorization: `Bearer ${SUPABASE_KEY}`,
-      'Content-Type': 'application/json'
+  try {
+    // Fetch properties from Supabase
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE_NAME}?select=${URL_COLUMN}`, {
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error(`❌ Failed to fetch properties (${res.status}):`, errorText);
+      process.exit(1);
     }
-  });
 
-  if (!res.ok) {
-    const err = await res.text();
-    console.error(`❌ Supabase rejected request (${res.status}):`, err);
-    process.exit(1);
-  }
+    const properties = await res.json();
+    console.log(`📊 Fetched ${properties.length} properties from Supabase`);
 
-  const properties = await res.json();
-  const baseUrl = 'https://rentwiseproperties.co.ke';
+    const baseUrl = 'https://rentwiseproperties.co.ke';
 
-  const staticPages = [
-    { loc: '/', changefreq: 'daily', priority: '1.0' },
-    { loc: '/properties', changefreq: 'daily', priority: '0.9' },
-    { loc: '/contact', changefreq: 'monthly', priority: '0.6' },
-    { loc: '/blog', changefreq: 'weekly', priority: '0.8' }
-  ];
+    // Static pages
+    const staticPages = [
+      { loc: '/', changefreq: 'daily', priority: '1.0' },
+      { loc: '/properties', changefreq: 'daily', priority: '0.9' },
+      { loc: '/contact', changefreq: 'monthly', priority: '0.6' },
+      { loc: '/blog', changefreq: 'weekly', priority: '0.8' }
+    ];
 
-  const propertyUrls = properties.map(p => `
+    // Generate property URLs
+    const propertyUrls = properties.map(p => {
+      const slug = p[URL_COLUMN];
+      if (!slug) {
+        console.warn('⚠️ Property missing slug:', p);
+        return null;
+      }
+      return `
     <url>
-      <loc>${baseUrl}/properties/${p[URL_COLUMN]}</loc>
+      <loc>${baseUrl}/properties/${slug}</loc>
       <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
       <changefreq>weekly</changefreq>
       <priority>0.8</priority>
-    </url>`).join('\n');
+    </url>`;
+    }).filter(Boolean); // Remove null entries
 
-  const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+    // 🔥 CRITICAL: XML declaration MUST be first (no spaces/BOM before it)
+    const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  ${staticPages.map(p => `
-    <url>
-      <loc>${baseUrl}${p.loc}</loc>
-      <changefreq>${p.changefreq}</changefreq>
-      <priority>${p.priority}</priority>
-    </url>`).join('\n')}
-  ${propertyUrls}
+${staticPages.map(p => `  <url>
+    <loc>${baseUrl}${p.loc}</loc>
+    <changefreq>${p.changefreq}</changefreq>
+    <priority>${p.priority}</priority>
+  </url>`).join('\n')}
+${propertyUrls.join('\n')}
 </urlset>`;
 
-  const outputPath = path.resolve(__dirname, '../public/sitemap.xml');
-  fs.writeFileSync(outputPath, sitemap.trim());
-  console.log(`✅ sitemap.xml generated with ${properties.length} properties!`);
+    // Write to public folder (Vite copies this to dist/ on build)
+    const outputPath = path.resolve(__dirname, '../public/sitemap.xml');
+    fs.writeFileSync(outputPath, sitemap, 'utf8');
+    
+    console.log(`✅ sitemap.xml generated successfully!`);
+    console.log(`📁 Location: ${outputPath}`);
+    console.log(`📄 Total URLs: ${staticPages.length + propertyUrls.length}`);
+    console.log(`   - Static pages: ${staticPages.length}`);
+    console.log(`   - Property pages: ${propertyUrls.length}`);
+
+  } catch (error) {
+    console.error('❌ Error generating sitemap:', error.message);
+    process.exit(1);
+  }
 }
 
 generateSitemap();
