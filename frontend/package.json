@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "prebuild": "node scripts/generate-sitemap.mjs",
-    "build": "vite build && copy public\\sitemap.xml dist\\sitemap.xml",
+    "build": "vite build && shx cp public/sitemap.xml dist/sitemap.xml",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -26,6 +26,7 @@
     "@types/react-dom": "^18.2.0",
     "@vitejs/plugin-react": "^4.3.4",
     "dotenv": "^17.4.1",
+    "shx": "^0.4.0",
     "tailwindcss": "^4.2.2",
     "terser": "^5.46.1",
     "vite": "^5.4.14"
