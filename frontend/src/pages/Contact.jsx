@@ -73,7 +73,7 @@ const Contact = () => {
   };
 
   const contactInfo = [
-    { emoji: '📞', title: 'Phone', details: '+254 724 822 194' },
+    { emoji: '📞', title: 'Phone', details: '+254 798 118 515' },
     { emoji: '✉️', title: 'Email', details: 'info@rentwiseproperties.com' },
     { emoji: '📍', title: 'Office', details: 'Westlands, Nairobi, Kenya' },
     { emoji: '🕒', title: 'Hours', details: 'Mon-Fri: 8AM - 5PM' },
